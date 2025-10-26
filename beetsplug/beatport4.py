@@ -25,14 +25,15 @@ from datetime import timedelta, datetime
 from json import JSONDecodeError
 from urllib.parse import urlparse, parse_qs, urlencode
 
-from beets.art import embed_item, get_art
+from beetsplug._utils.art import embed_item, get_art
 from beets.library import MusicalKey
 
 import beets
 import beets.ui
 import requests
 from beets.autotag.hooks import AlbumInfo, TrackInfo
-from beets.plugins import BeetsPlugin, MetadataSourcePlugin, get_distance
+from beets.plugins import BeetsPlugin
+from beets.metadata_plugins import MetadataSourcePlugin, get_penalty
 import confuse
 
 USER_AGENT = f'beets/{beets.__version__} +https://beets.io/'
@@ -498,7 +499,7 @@ class Beatport4Client:
         }
 
 
-class Beatport4Plugin(BeetsPlugin):
+class Beatport4Plugin(MetadataSourcePlugin):
     data_source = 'Beatport'
 
     def __init__(self):
@@ -618,21 +619,15 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns the Beatport source weight and the maximum source weight
         for albums.
         """
-        return get_distance(
-            data_source=self.data_source,
-            info=album_info,
-            config=self.config
-        )
+        return get_penalty(self.data_source)
+
 
     def track_distance(self, item, track_info):
         """Returns the Beatport source weight and the maximum source weight
         for individual tracks.
         """
-        return get_distance(
-            data_source=self.data_source,
-            info=track_info,
-            config=self.config
-        )
+        return get_penalty(self.data_source)
+
 
     def candidates(self, items, artist, release, va_likely, extra_tags=None):
         """Returns a list of AlbumInfo objects for beatport search results
@@ -659,12 +654,12 @@ class Beatport4Plugin(BeetsPlugin):
             self._log.debug('API Error: {0} (query: {1})', e, query)
             return []
 
-    def album_for_id(self, release_id):
+    def album_for_id(self, album_id):
         """Fetches a release by its Beatport ID and returns an AlbumInfo object
         or None if the query is not a valid ID or release is not found.
         """
-        self._log.debug('Searching for release {0}', release_id)
-        match = re.search(r'(^|beatport\.com/release/.+/)(\d+)$', release_id)
+        self._log.debug('Searching for release {0}', album_id)
+        match = re.search(r'(^|beatport\.com/release/.+/)(\d+)$', album_id)
         if not match:
             self._log.debug('Not a valid Beatport release ID.')
             return None
